@@ -1,4 +1,4 @@
-"""# SMAC&SHOP App: Preloaded Shop WebView Architecture
+# SMAC&SHOP App: Preloaded Shop WebView Architecture
 
 ## 1. Architectural Overview
 
@@ -27,3 +27,98 @@ This approach holds multiple widgets but only displays one at a time, keeping th
 * **JS Execution Constraints**: To conserve CPU cycles and battery life, JavaScript execution should be managed. Consider pausing execution via the controller when the web tab is out of focus, and resuming it immediately before switching the index back to the WebView.
 
 ## 5. Core Implementation Reference
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:webview_flutter/webview_flutter.dart';
+
+class AppNavigationController extends ChangeNotifier {
+  int currentIndex = 0;
+  String webUrl = '[https://shop.smac.com](https://shop.smac.com)';
+
+  void navigateToShop(String url) {
+    webUrl = url;
+    currentIndex = 1;
+    notifyListeners();
+  }
+
+  void navigateToNative() {
+    currentIndex = 0;
+    notifyListeners();
+  }
+}
+
+class MainAppShell extends StatelessWidget {
+  final AppNavigationController controller;
+
+  const MainAppShell({super.key, required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, child) {
+        return IndexedStack(
+          index: controller.currentIndex,
+          children: [
+            const NativeAppTab(),
+            ShopWebTab(url: controller.webUrl),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class ShopWebTab extends StatefulWidget {
+  final String url;
+  
+  const ShopWebTab({super.key, required this.url});
+
+  @override
+  State<ShopWebTab> createState() => _ShopWebTabState();
+}
+
+class _ShopWebTabState extends State<ShopWebTab> with AutomaticKeepAliveClientMixin {
+  late final WebViewController _webViewController;
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    _webViewController = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..loadRequest(Uri.parse(widget.url));
+  }
+
+  @override
+  void didUpdateWidget(ShopWebTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.url != oldWidget.url) {
+      _webViewController.loadRequest(Uri.parse(widget.url));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context); // Crucial for AutomaticKeepAliveClientMixin
+    return Scaffold(
+      body: SafeArea(
+        child: WebViewWidget(controller: _webViewController),
+      ),
+    );
+  }
+}
+
+class NativeAppTab extends StatelessWidget {
+  const NativeAppTab({super.key});
+  
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(child: Text('Native SMAC App')),
+    );
+  }
+}
